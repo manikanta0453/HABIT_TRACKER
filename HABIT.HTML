@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Habit Tracker</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+         :root {
+            --primary: #4f46e5;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --bg: #f1f5f9;
+            --card: #ffffff;
+        }
+        
+        body {
+            margin: 0;
+            font-family: Segoe UI;
+            background: url("https://images.unsplash.com/photo-1508780709619-79562169bc64") no-repeat center center/cover;
+            min-height: 100vh;
+        }
+        
+        .overlay {
+            background: rgba(0, 0, 0, 0.5);
+            min-height: 100vh;
+            padding: 30px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: auto;
+            background: var(--card);
+            padding: 25px;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            text-align: center;
+        }
+        
+        .quote-box {
+            background: #eef2ff;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        input {
+            padding: 10px;
+            width: 60%;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+        
+        button {
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 5px;
+            background: var(--primary);
+            color: white;
+            transition: 0.3s;
+        }
+        
+        button:hover {
+            transform: scale(1.05);
+        }
+        
+        ul {
+            padding: 0;
+            margin-top: 20px;
+        }
+        
+        li {
+            list-style: none;
+            background: #e0e7ff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+        }
+        
+        .chart-container {
+            width: 280px;
+            height: 280px;
+            margin: 20px auto;
+        }
+        
+        .calendar {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+        }
+        
+        .day {
+            padding: 12px;
+            text-align: center;
+            border-radius: 8px;
+            background: #e5e7eb;
+            font-size: 14px;
+        }
+        
+        .good {
+            background: #22c55e;
+            color: white;
+        }
+        
+        .medium {
+            background: #facc15;
+        }
+        
+        .bad {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .danger-btn {
+            background: var(--danger);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="overlay">
+        <div class="container">
+
+            <h1>Habit Tracker</h1>
+
+            <div class="quote-box" id="dailyQuote"></div>
+
+            <input type="text" id="habitInput" placeholder="Add habit">
+            <button onclick="addHabit()">Add</button>
+            <button onclick="saveToday()">Save Today</button>
+            <button class="danger-btn" onclick="clearHistory()">Delete History</button>
+
+            <ul id="habitList"></ul>
+
+            <div class="chart-container">
+                <canvas id="pieChart"></canvas>
+            </div>
+
+            <h3>Monthly Calendar</h3>
+            <div class="calendar" id="calendar"></div>
+
+        </div>
+    </div>
+
+    <script>
+        /* ===========================
+                                           30 DAILY QUOTES
+                                        =========================== */
+        const quotes = [
+            "Success doesn’t come from what you do occasionally, it comes from consistency.",
+            "Discipline is choosing between what you want now and what you want most.",
+            "Small daily improvements lead to big success.",
+            "Don’t stop when you’re tired. Stop when you’re done.",
+            "Dream big. Start small. Act now.",
+            "Your future is created by what you do today.",
+            "Push yourself because no one else will.",
+            "The pain of discipline is better than regret.",
+            "Focus on progress, not perfection.",
+            "Consistency beats motivation.",
+            "Study while others are sleeping.",
+            "Hard work beats talent.",
+            "Compete with yesterday’s version of yourself.",
+            "Great things never come from comfort zones.",
+            "One chapter today, success tomorrow.",
+            "Success is small efforts repeated daily.",
+            "Make yourself proud.",
+            "You don’t have to be extreme, just consistent.",
+            "Difficult roads lead to beautiful destinations.",
+            "Stay focused. Stay hungry.",
+            "The expert was once a beginner.",
+            "Every day is a new opportunity.",
+            "Don’t wish for it. Work for it.",
+            "Results happen over time.",
+            "Stay disciplined, stay unstoppable.",
+            "Your goals don’t care how you feel.",
+            "Effort today = success tomorrow.",
+            "Getting started is the secret.",
+            "Do it now. Later becomes never.",
+            "Consistency creates confidence."
+        ];
+
+        /* Show quote based on date */
+        function showDailyQuote() {
+            const today = new Date().getDate();
+            const quote = quotes[today % quotes.length];
+            document.getElementById("dailyQuote").innerText = quote;
+        }
+        showDailyQuote();
+
+        /* ===========================
+           HABIT LOGIC
+        =========================== */
+        let habits = JSON.parse(localStorage.getItem("habits")) || [];
+        let history = JSON.parse(localStorage.getItem("history")) || {};
+
+        function addHabit() {
+            const input = document.getElementById("habitInput");
+            if (!input.value.trim()) return;
+            habits.push({
+                name: input.value,
+                done: false
+            });
+            input.value = "";
+            saveHabits();
+            render();
+        }
+
+        function toggleHabit(i) {
+            habits[i].done = !habits[i].done;
+            saveHabits();
+            render();
+        }
+
+        function deleteHabit(i) {
+            habits.splice(i, 1);
+            saveHabits();
+            render();
+        }
+
+        function saveHabits() {
+            localStorage.setItem("habits", JSON.stringify(habits));
+        }
+
+        function render() {
+            const list = document.getElementById("habitList");
+            list.innerHTML = "";
+            let completed = 0;
+
+            habits.forEach((h, i) => {
+                if (h.done) completed++;
+                list.innerHTML += `
+    <li>
+      <span class="${h.done?'completed':''}">${h.name}</span>
+      <div>
+        <input type="checkbox" ${h.done?'checked':''} onchange="toggleHabit(${i})">
+        <button onclick="deleteHabit(${i})">❌</button>
+      </div>
+    </li>`;
+            });
+
+            updateChart(completed, habits.length - completed);
+        }
+
+        function saveToday() {
+            const today = new Date().toISOString().split("T")[0];
+            let completed = habits.filter(h => h.done).length;
+            let percent = habits.length ? Math.round((completed / habits.length) * 100) : 0;
+
+            history[today] = percent;
+            localStorage.setItem("history", JSON.stringify(history));
+            generateCalendar();
+        }
+
+        function clearHistory() {
+            if (confirm("Delete all saved history?")) {
+                history = {};
+                localStorage.removeItem("history");
+                generateCalendar();
+            }
+        }
+
+        function generateCalendar() {
+            const calendar = document.getElementById("calendar");
+            calendar.innerHTML = "";
+
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const days = new Date(year, month + 1, 0).getDate();
+
+            for (let d = 1; d <= days; d++) {
+                const dateStr = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+                const div = document.createElement("div");
+                div.className = "day";
+                div.innerText = d;
+
+                if (history[dateStr] != null) {
+                    const score = history[dateStr];
+                    if (score >= 75) div.classList.add("good");
+                    else if (score >= 40) div.classList.add("medium");
+                    else div.classList.add("bad");
+                    div.title = score + "% completed";
+                }
+
+                calendar.appendChild(div);
+            }
+        }
+
+        function updateChart(completed, remaining) {
+            const ctx = document.getElementById("pieChart").getContext("2d");
+            if (window.myChart) window.myChart.destroy();
+
+            window.myChart = new Chart(ctx, {
+                type: "pie",
+                data: {
+                    labels: ["Completed", "Remaining"],
+                    datasets: [{
+                        data: [completed, remaining],
+                        backgroundColor: ["#22c55e", "#ef4444"]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        render();
+        generateCalendar();
+    </script>
+</body>
+
+</html>
